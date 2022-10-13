@@ -1,6 +1,7 @@
 import logging
 from environs import Env
 
+from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from tlgm_logger import TlgmLogsHandler
 
@@ -14,8 +15,11 @@ def echo(update, context):
 
 def start(update, context):
     user = update.effective_user
+    custom_keyboard = [['Новый вопрос', 'Сдаться'],['Мой счет']]
+    reply_markup = ReplyKeyboardMarkup(custom_keyboard)
     update.message.reply_markdown_v2(
-        fr'Здравствуйте {user.mention_markdown_v2()}\!',
+        fr'Здравствуйте {user.mention_markdown_v2()}\! Я бот для викторин\!',
+        reply_markup=reply_markup,
     )
 
 
@@ -31,7 +35,7 @@ def main():
 
     env = Env()
     env.read_env()
-    tlgm_token_bot = env('TLGM_TOKEN_BOT')
+    tlgm_token_bot = env('TLGM_BOT_TOKEN')
 
     updater = Updater(tlgm_token_bot)
     dispatcher = updater.dispatcher
