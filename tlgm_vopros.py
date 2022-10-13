@@ -1,6 +1,7 @@
 import os
 import logging
-from random import choice
+import redis
+from random import randint
 from environs import Env
 
 from telegram import ReplyKeyboardMarkup
@@ -13,7 +14,11 @@ logger = logging.getLogger(__file__)
 
 def echo(update, context):
     if update.message.text == 'Новый вопрос':
-        update.message.reply_text(choice(context.bot_data['quiz'])[0])
+        quiz_id = randint(0, context.bot_data['max_quiz_id'])
+        redis = context.bot_data['redis']
+        redis.set(1, quiz_id)
+        update.message.reply_text(
+            context.bot_data['quiz'][quiz_id][0])
 
 
 def start(update, context):
@@ -36,6 +41,8 @@ def main():
                 level=logging.INFO
     )
 
+    redis_db = redis.Redis(host='localhost', port=6379, db=0)
+
     files = os.listdir(path='questions')
     quiz = []
     for file in files:
@@ -54,6 +61,8 @@ def main():
     dispatcher = updater.dispatcher
 
     dispatcher.bot_data['quiz'] = quiz
+    dispatcher.bot_data['max_quiz_id'] = len(quiz) - 1
+    dispatcher.bot_data['redis'] = redis_db
 
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(
