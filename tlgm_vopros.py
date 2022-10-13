@@ -1,4 +1,6 @@
+import os
 import logging
+from random import choice
 from environs import Env
 
 from telegram import ReplyKeyboardMarkup
@@ -10,7 +12,8 @@ logger = logging.getLogger(__file__)
 
 
 def echo(update, context):
-    update.message.reply_text(update.message.text)
+    if update.message.text == 'Новый вопрос':
+        update.message.reply_text(choice(context.bot_data['quiz'])[0])
 
 
 def start(update, context):
@@ -33,12 +36,24 @@ def main():
                 level=logging.INFO
     )
 
+    files = os.listdir(path='questions')
+    quiz = []
+    for file in files:
+        with open(f'questions/{files[2]}', "r", encoding='KOI8-R') as f:
+            content = f.read().rsplit('\n\nВопрос')[1:]
+            for paragraph in content:
+                chunks = paragraph.split('\n\n')
+                quiz.append([" ".join(chunks[0].split("\n")[1:]),
+                            " ".join(chunks[1].split("\n")[1:])])
+
     env = Env()
     env.read_env()
     tlgm_token_bot = env('TLGM_BOT_TOKEN')
 
     updater = Updater(tlgm_token_bot)
     dispatcher = updater.dispatcher
+
+    dispatcher.bot_data['quiz'] = quiz
 
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(
