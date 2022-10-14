@@ -99,9 +99,9 @@ def main():
 
     env = Env()
     env.read_env()
-    tlgm_token_bot = env('TLGM_BOT_TOKEN')
+    tlgm_bot_token = env('TLGM_BOT_TOKEN')
 
-    updater = Updater(tlgm_token_bot)
+    updater = Updater(tlgm_bot_token)
     dispatcher = updater.dispatcher
 
     dispatcher.bot_data['quiz'] = quiz
