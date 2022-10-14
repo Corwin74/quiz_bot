@@ -1,73 +1,81 @@
 import logging
-import os
 from random import randint
 
 import redis
 from environs import Env
 from telegram import ReplyKeyboardMarkup
-from telegram.ext import (CommandHandler, Filters, MessageHandler,
-                             Updater, ConversationHandler)
+from telegram.ext import (CommandHandler, ConversationHandler, Filters,
+                          MessageHandler, Updater)
 
+from quiz_data_api import load_quiz_data
 from tlgm_logger import TlgmLogsHandler
 
-QUESTION = 1
-ANSWER = 2
-HINT = 3
+QUESTION, ANSWER = (1, 2)
+QUIZ_REPLY = ReplyKeyboardMarkup([['Новый вопрос', 'Сдаться'], ['Мой счет']])
+QUIZ_DIR = 'questions'
 
 logger = logging.getLogger(__file__)
 
 
-def echo(update, context):
+def get_new_question(update, context):
     redis = context.bot_data['redis']
-    question_id = int(redis.get(update.message.chat.id))
-    print(context.bot_data['quiz'][question_id][1])
-    print(update.message.text)
-
+    quiz_id = randint(0, context.bot_data['max_quiz_id'])
+    redis.set(update.message.chat.id, quiz_id)
+    return context.bot_data['quiz'][quiz_id][0]
 
 
 def start(update, context):
     user = update.effective_user
-    custom_keyboard = [['Новый вопрос', 'Сдаться'],['Мой счет']]
-    reply_markup = ReplyKeyboardMarkup(custom_keyboard)
     update.message.reply_markdown_v2(
         fr'Здравствуйте {user.mention_markdown_v2()}\! Я бот для викторин\!',
-        reply_markup=reply_markup,
+        reply_markup=QUIZ_REPLY,
     )
     return QUESTION
 
-def question(update, context):
-    user = update.effective_user
-    custom_keyboard = [['Новый вопрос', 'Сдаться'],['Мой счет']]
-    reply_markup = ReplyKeyboardMarkup(custom_keyboard)
-    redis = context.bot_data['redis']
-    quiz_id = randint(0, context.bot_data['max_quiz_id'])
-    redis.set(update.message.chat.id, quiz_id)
+
+def handle_new_question_request(update, context):
     update.message.reply_text(
-            context.bot_data['quiz'][quiz_id][0],
-            reply_markup=reply_markup)
-    update.message.reply_text(
-        context.bot_data['quiz'][quiz_id][1],
-        reply_markup=reply_markup)
+            get_new_question(update, context),
+            reply_markup=QUIZ_REPLY)
     return ANSWER
 
-def answer(update, context):
+
+def handle_solution_attempt(update, context):
     redis = context.bot_data['redis']
     question_id = int(redis.get(update.message.chat.id))
     if update.message.text.lower() == \
-        context.bot_data['quiz'][question_id][1].strip('\"').split('.')[0].lower():
-        custom_keyboard = [['Новый вопрос', 'Сдаться'], ['Мой счет']]
-        reply_markup = ReplyKeyboardMarkup(custom_keyboard)
+            context.bot_data['quiz'][question_id][1]. \
+            strip('\"').split('.')[0].lower():
         update.message.reply_text(
-            'Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»',
-            reply_markup=reply_markup,
+            'Правильно! Поздравляю! '
+            'Для следующего вопроса нажми «Новый вопрос»',
+            reply_markup=QUIZ_REPLY,
         )
         return QUESTION
-    update.message.reply_text('Неправильно… Попробуешь ещё раз?')
+    update.message.reply_text(
+                              'Неправильно… Попробуешь ещё раз?',
+                              reply_markup=QUIZ_REPLY
+    )
     return ANSWER
 
+
+def give_up(update, context):
+    redis = context.bot_data['redis']
+    question_id = int(redis.get(update.message.chat.id))
+    update.message.reply_text('Внимание, правильный ответ:\n' +
+                              context.bot_data['quiz'][question_id][1],
+                              reply_markup=QUIZ_REPLY
+                              )
+    update.message.reply_text(
+        get_new_question(update, context),
+        reply_markup=QUIZ_REPLY)
+    return ANSWER
+
+
 def cancel(update, context):
-    update.message.reply_text('Галя, Отмена!')
-    return QUESTION
+    update.message.reply_text('До следующих встреч!')
+    return ConversationHandler.END
+
 
 def error_handler(update, context):
     logger.exception('Exception', exc_info=context.error)
@@ -87,15 +95,7 @@ def main():
                            decode_responses=True
     )
 
-    files = os.listdir(path='questions')
-    quiz = []
-    for file in files:
-        with open(f'questions/{files[2]}', "r", encoding='KOI8-R') as f:
-            content = f.read().rsplit('\n\nВопрос')[1:]
-            for paragraph in content:
-                chunks = paragraph.split('\n\n')
-                quiz.append([" ".join(chunks[0].split("\n")[1:]),
-                            " ".join(chunks[1].split("\n")[1:])])
+    quiz = load_quiz_data(QUIZ_DIR)
 
     env = Env()
     env.read_env()
@@ -113,19 +113,19 @@ def main():
 
         states={
             QUESTION: [
-                       MessageHandler(Filters.regex(r'^(Новый вопрос)$'), question),
-                       ],
+                       MessageHandler(Filters.regex(r'^(Новый вопрос)$'),
+                                      handle_new_question_request),
+                      ],
 
             ANSWER: [
-                      MessageHandler(Filters.regex(r'^(Сдаться)$'), cancel),
-                      MessageHandler(Filters.text & ~Filters.command, answer)
+                      MessageHandler(Filters.regex(r'^(Сдаться)$'), give_up),
+                      MessageHandler(Filters.text & ~Filters.command,
+                                     handle_solution_attempt)
                     ],
-            HINT: []
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]
     )
-
 
     dispatcher.add_handler(conv_handler)
 
