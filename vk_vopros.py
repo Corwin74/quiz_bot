@@ -12,6 +12,7 @@ from vk_api.longpoll import VkEventType, VkLongPoll
 from tlgm_logger import TlgmLogsHandler
 
 SLEEP_TIME = 10
+START, QUESTION, ANSWER, CANCEL = (1, 2, 3, 4)
 
 logger = logging.getLogger(__file__)
 
@@ -59,8 +60,20 @@ def main():
     logger.info('VK_bot started!')
     for event in longpoll.listen():
         try:
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                echo(event, vk_api)
+            state = START
+            if not (event.type == VkEventType.MESSAGE_NEW and event.to_me):
+                continue
+            if state == START and event.text == 'Новый вопрос':
+                vk_api.messages.send(
+                                     user_id=event.user_id,
+                                     message='Куда дел сокровища убиенной тещи?',
+                                     keyboard=keyboard.get_keyboard(),
+                                     random_id=random.randint(1, 1000)
+                )
+                state = ANSWER
+                continue
+            if state == ANSWER and 
+            
         except VkApiError as exception:
             logger.exception(exception)
             time.sleep(SLEEP_TIME)
