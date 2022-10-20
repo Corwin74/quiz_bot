@@ -28,8 +28,60 @@ def get_quiz_keyboard():
     return keyboard.get_keyboard()
 
 
-def main():
+def handle_solution_attempt(event, vk_api, quiz, redis_db):
+    question_id = int(redis_db.get(event.user_id))
+    if event.text.lower() == \
+            quiz[question_id][1].strip('\"').split('.')[0].lower():
+        vk_api.messages.send(
+            user_id=event.user_id,
+            message='Правильно! Поздравляю! '
+                    'Для следующего вопроса нажми «Новый вопрос»',
+            keyboard=get_quiz_keyboard(),
+            random_id=randint(1, 1000)
+        )
+        return QUESTION
+    else:
+        vk_api.messages.send(
+            user_id=event.user_id,
+            message='Неправильно… Попробуешь ещё раз?',
+            keyboard=get_quiz_keyboard(),
+            random_id=randint(1, 1000)
+        )
+        return ANSWER
 
+
+def give_up(event, vk_api, quiz, redis_db):
+    question_id = int(redis_db.get(event.user_id))
+    vk_api.messages.send(
+            user_id=event.user_id,
+            message=f'Внимание, правильный ответ:\n'
+                    f'{quiz[question_id][1]}',
+            random_id=randint(1, 1000)
+    )
+    question_id = randint(0, len(quiz)-1)
+    redis_db.set(event.user_id, question_id)
+    vk_api.messages.send(
+                        user_id=event.user_id,
+                        message=quiz[question_id][0],
+                        keyboard=get_quiz_keyboard(),
+                        random_id=randint(1, 1000)
+    )
+    return ANSWER
+
+
+def ask_new_question(event, vk_api, quiz, redis_db):
+    question_id = randint(0, len(quiz)-1)
+    redis_db.set(event.user_id, question_id)
+    vk_api.messages.send(
+                        user_id=event.user_id,
+                        message=quiz[question_id][0],
+                        keyboard=get_quiz_keyboard(),
+                        random_id=randint(1, 1000)
+    )
+    return ANSWER
+
+
+def main():
 
     env = Env()
     env.read_env()
@@ -49,7 +101,6 @@ def main():
                            decode_responses=True
     )
     quiz = load_quiz_data(quiz_dir)
-    max_quiz_id = len(quiz) - 1
     tlgm_bot = telegram.Bot(tlgm_bot_token)
 
     formatter = logging.Formatter(
@@ -91,55 +142,13 @@ def main():
                 state = START
                 continue
             if state == QUESTION and event.text == 'Новый вопрос':
-                question_id = randint(0, max_quiz_id)
-                redis_db.set(event.user_id, question_id)
-                vk_api.messages.send(
-                                     user_id=event.user_id,
-                                     message=quiz[question_id][0],
-                                     keyboard=get_quiz_keyboard(),
-                                     random_id=randint(1, 1000)
-                )
-                state = ANSWER
+                state = ask_new_question(event, vk_api, quiz, redis_db)
                 continue
             if state == ANSWER and event.text == 'Сдаться':
-                question_id = int(redis_db.get(event.user_id))
-                vk_api.messages.send(
-                        user_id=event.user_id,
-                        message=f'Внимание, правильный ответ:\n'
-                                f'{quiz[question_id][1]}',
-                        random_id=randint(1, 1000)
-                )
-                question_id = randint(0, max_quiz_id)
-                redis_db.set(event.user_id, question_id)
-                vk_api.messages.send(
-                                    user_id=event.user_id,
-                                    message=quiz[question_id][0],
-                                    keyboard=get_quiz_keyboard(),
-                                    random_id=randint(1, 1000)
-                )
-                state = ANSWER
+                state = give_up(event, vk_api, quiz, redis_db)
                 continue
             if state == ANSWER:
-                question_id = int(redis_db.get(event.user_id))
-                if event.text.lower() == \
-                        quiz[question_id][1].strip('\"').split('.')[0].lower():
-                    vk_api.messages.send(
-                        user_id=event.user_id,
-                        message='Правильно! Поздравляю! '
-                                'Для следующего вопроса нажми «Новый вопрос»',
-                        keyboard=get_quiz_keyboard(),
-                        random_id=randint(1, 1000)
-                    )
-                    state = QUESTION
-                    continue
-                else:
-                    vk_api.messages.send(
-                        user_id=event.user_id,
-                        message='Неправильно… Попробуешь ещё раз?',
-                        keyboard=get_quiz_keyboard(),
-                        random_id=randint(1, 1000)
-                    )
-                    continue
+                state = handle_solution_attempt(event, vk_api, quiz, redis_db)
         except VkApiError as exception:
             logger.exception(exception)
             time.sleep(SLEEP_TIME)
