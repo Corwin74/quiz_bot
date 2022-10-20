@@ -14,7 +14,6 @@ from quiz_data_api import load_quiz_data
 from tlgm_logger import TlgmLogsHandler
 
 SLEEP_TIME = 10
-START, QUESTION, ANSWER = (1, 2, 3)
 
 logger = logging.getLogger(__file__)
 
@@ -39,7 +38,7 @@ def handle_solution_attempt(event, vk_api, quiz, redis_db):
             keyboard=get_quiz_keyboard(),
             random_id=randint(1, 1000)
         )
-        return QUESTION
+        return 'question'
     else:
         vk_api.messages.send(
             user_id=event.user_id,
@@ -47,7 +46,7 @@ def handle_solution_attempt(event, vk_api, quiz, redis_db):
             keyboard=get_quiz_keyboard(),
             random_id=randint(1, 1000)
         )
-        return ANSWER
+        return 'answer'
 
 
 def give_up(event, vk_api, quiz, redis_db):
@@ -66,7 +65,7 @@ def give_up(event, vk_api, quiz, redis_db):
                         keyboard=get_quiz_keyboard(),
                         random_id=randint(1, 1000)
     )
-    return ANSWER
+    return 'answer'
 
 
 def ask_new_question(event, vk_api, quiz, redis_db):
@@ -78,7 +77,7 @@ def ask_new_question(event, vk_api, quiz, redis_db):
                         keyboard=get_quiz_keyboard(),
                         random_id=randint(1, 1000)
     )
-    return ANSWER
+    return 'answer'
 
 
 def main():
@@ -120,7 +119,6 @@ def main():
     longpoll = VkLongPoll(vk_session)
 
     logger.info('VK_bot started!')
-    state = START
     for event in longpoll.listen():
         try:
             if not (event.type == VkEventType.MESSAGE_NEW and event.to_me):
@@ -132,23 +130,34 @@ def main():
                                     keyboard=get_quiz_keyboard(),
                                     random_id=randint(1, 1000)
                 )
-                state = QUESTION
+                redis_db.set(str(event.user_id)+'_state', 'question')
             if event.text == '/cancel':
                 vk_api.messages.send(
                                     user_id=event.user_id,
                                     message='До следующих встреч!',
                                     random_id=randint(1, 1000)
                 )
-                state = START
+                redis_db.set(str(event.user_id)+'_state', 'start')
                 continue
-            if state == QUESTION and event.text == 'Новый вопрос':
-                state = ask_new_question(event, vk_api, quiz, redis_db)
+            if redis_db.get(str(event.user_id)+'_state') == 'question' \
+                    and event.text == 'Новый вопрос':
+                redis_db.set(
+                             str(event.user_id)+'_state',
+                             ask_new_question(event, vk_api, quiz, redis_db)
+                            )
                 continue
-            if state == ANSWER and event.text == 'Сдаться':
-                state = give_up(event, vk_api, quiz, redis_db)
+            if redis_db.get(str(event.user_id)+'_state') == 'answer' \
+                    and event.text == 'Сдаться':
+                redis_db.set(
+                             str(event.user_id)+'_state',
+                             give_up(event, vk_api, quiz, redis_db)
+                            )
                 continue
-            if state == ANSWER:
-                state = handle_solution_attempt(event, vk_api, quiz, redis_db)
+            if redis_db.get(str(event.user_id)+'_state') == 'answer':
+                redis_db.set(
+                        str(event.user_id)+'_state',
+                        handle_solution_attempt(event, vk_api, quiz, redis_db)
+                )
         except VkApiError as exception:
             logger.exception(exception)
             time.sleep(SLEEP_TIME)
