@@ -37,9 +37,6 @@ def main():
     tlgm_bot_token = env('TLGM_BOT_TOKEN')
 
     redis_db = redis.Redis(
-                           host='localhost',
-                           port=6379,
-                           db=0,
                            charset="utf-8",
                            decode_responses=True
     )
