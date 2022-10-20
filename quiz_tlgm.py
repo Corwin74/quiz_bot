@@ -17,13 +17,6 @@ QUIZ_DIR = 'questions'
 logger = logging.getLogger(__file__)
 
 
-def get_new_question(update, context):
-    redis = context.bot_data['redis']
-    quiz_id = randint(0, context.bot_data['max_quiz_id'])
-    redis.set(update.message.chat.id, quiz_id)
-    return context.bot_data['quiz'][quiz_id][0]
-
-
 def start(update, context):
     user = update.effective_user
     update.message.reply_markdown_v2(
@@ -34,8 +27,11 @@ def start(update, context):
 
 
 def handle_new_question_request(update, context):
+    redis = context.bot_data['redis']
+    quiz_id = randint(0, context.bot_data['max_quiz_id'])
+    redis.set(update.message.chat.id, quiz_id)
     update.message.reply_text(
-            get_new_question(update, context),
+            context.bot_data['quiz'][quiz_id][0],
             reply_markup=QUIZ_REPLY)
     return ANSWER
 
@@ -66,8 +62,11 @@ def give_up(update, context):
                               context.bot_data['quiz'][question_id][1],
                               reply_markup=QUIZ_REPLY
                               )
+    redis = context.bot_data['redis']
+    quiz_id = randint(0, context.bot_data['max_quiz_id'])
+    redis.set(update.message.chat.id, quiz_id)
     update.message.reply_text(
-        get_new_question(update, context),
+        context.bot_data['quiz'][quiz_id][0],
         reply_markup=QUIZ_REPLY)
     return ANSWER
 
