@@ -12,7 +12,6 @@ from tlgm_logger import TlgmLogsHandler
 
 QUESTION, ANSWER = (1, 2)
 QUIZ_REPLY = ReplyKeyboardMarkup([['Новый вопрос', 'Сдаться'], ['Мой счет']])
-QUIZ_DIR = 'questions'
 
 logger = logging.getLogger(__file__)
 
@@ -86,8 +85,6 @@ def main():
                 level=logging.INFO
     )
 
-    quiz = load_quiz_data(QUIZ_DIR)
-
     env = Env()
     env.read_env()
     tlgm_bot_token = env('TLGM_BOT_TOKEN')
@@ -95,7 +92,7 @@ def main():
     redis_port = env('REDIS_PORT', default=6379)
     redis_host = env('REDIS_HOST', default='localhost')
     quiz_dir = env('QUIZ_DIR', default='questions')
-
+    quiz = load_quiz_data(quiz_dir)
     redis_db = redis.Redis(
                            host=redis_host,
                            port=redis_port,

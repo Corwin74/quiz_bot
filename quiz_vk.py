@@ -28,7 +28,6 @@ def get_quiz_keyboard():
 def main():
     SLEEP_TIME = 10
     START, QUESTION, ANSWER = (1, 2, 3)
-    QUIZ_DIR = 'questions'
 
     env = Env()
     env.read_env()
@@ -47,7 +46,7 @@ def main():
                            charset="utf-8",
                            decode_responses=True
     )
-    quiz = load_quiz_data(QUIZ_DIR)
+    quiz = load_quiz_data(quiz_dir)
     max_quiz_id = len(quiz) - 1
     tlgm_bot = telegram.Bot(tlgm_bot_token)
 
