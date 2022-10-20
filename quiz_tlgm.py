@@ -87,16 +87,22 @@ def main():
                 level=logging.INFO
     )
 
-    redis_db = redis.Redis(
-                           charset="utf-8",
-                           decode_responses=True
-    )
-
     quiz = load_quiz_data(QUIZ_DIR)
 
     env = Env()
     env.read_env()
     tlgm_bot_token = env('TLGM_BOT_TOKEN')
+    redis_db_id = env('REDIS_DB_ID', default=0)
+    redis_port = env('REDIS_PORT', default=6379)
+    redis_host = env('REDIS_HOST', default='localhost')
+
+    redis_db = redis.Redis(
+                           host=redis_host,
+                           port=redis_port,
+                           db=redis_db_id,
+                           charset="utf-8",
+                           decode_responses=True
+    )
 
     updater = Updater(tlgm_bot_token)
     dispatcher = updater.dispatcher
