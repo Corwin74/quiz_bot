@@ -13,6 +13,9 @@ from vk_api.longpoll import VkEventType, VkLongPoll
 from quiz_data_api import load_quiz_data
 from tlgm_logger import TlgmLogsHandler
 
+SLEEP_TIME = 10
+START, QUESTION, ANSWER = (1, 2, 3)
+
 logger = logging.getLogger(__file__)
 
 
@@ -26,8 +29,7 @@ def get_quiz_keyboard():
 
 
 def main():
-    SLEEP_TIME = 10
-    START, QUESTION, ANSWER = (1, 2, 3)
+
 
     env = Env()
     env.read_env()
