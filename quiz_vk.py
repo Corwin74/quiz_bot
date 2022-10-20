@@ -35,6 +35,7 @@ def main():
     vk_api_token = env('VK_API_TOKEN')
     admin_tlgm_chat_id = env('ADMIN_TLGM_CHAT_ID')
     tlgm_bot_token = env('TLGM_BOT_TOKEN')
+    quiz_dir = env('QUIZ_DIR', default='questions')
     redis_db_id = env('REDIS_DB_ID', default=0)
     redis_port = env('REDIS_PORT', default=6379)
     redis_host = env('REDIS_HOST', default='localhost')

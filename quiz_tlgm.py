@@ -95,6 +95,7 @@ def main():
     redis_db_id = env('REDIS_DB_ID', default=0)
     redis_port = env('REDIS_PORT', default=6379)
     redis_host = env('REDIS_HOST', default='localhost')
+    quiz_dir = env('QUIZ_DIR', default='questions')
 
     redis_db = redis.Redis(
                            host=redis_host,
